@@ -19,11 +19,11 @@ function Create-AZCredentialManager {
         [string]
         $KeyVaultName,
 
-        [Parameter()]
+        [Parameter('Cert:\CurrentUser\My', 'Cert:\LocalMachine\My' )]
         [string]
         $CertificateStorePath = 'Cert:\CurrentUser\My',
 
-        [Parameter()]
+        [ValidateSet()]
         [string]
         $CertificateSubject = 'cer-crendentialmanager-test-001',
 
