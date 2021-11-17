@@ -19,21 +19,21 @@ function Create-AZCredentialManager {
         [string]
         $KeyVaultName,
 
-        [Parameter('Cert:\CurrentUser\My', 'Cert:\LocalMachine\My' )]
+        [ValidateSet('Cert:\CurrentUser\My', 'Cert:\LocalMachine\My')]
         [string]
-        $CertificateStorePath = 'Cert:\CurrentUser\My',
-
-        [ValidateSet()]
-        [string]
-        $CertificateSubject = 'cer-crendentialmanager-test-001',
+        $CertificateStorePath,
 
         [Parameter()]
         [string]
-        $AppRegistrationName = 'appreg-credentialmanager-test-001',
+        $CertificateSubject,
+
+        [Parameter()]
+        [string]
+        $ServicePrincipalName,
 
         [Parameter()]
         [int]
-        $CertificateExpirationDateInYears = 2
+        $CertificateExpirationDateInYears
     )
     try {
         $modules = @('Az.Accounts', 'Az.Resources') | ForEach-Object { Import-Module $_ }
@@ -67,26 +67,25 @@ function Create-AZCredentialManager {
         $credValue = [System.Convert]::ToBase64String($binCert)
 
         #Creating an App Registration and uploading the certificate
-        $AppRegistration = New-AzADApplication -DisplayName $AppRegistrationName -CertValue $credValue
+        $ServicePrincipal = New-AzADServicePrincipal -DisplayName $ServicePrincipalName -CertValue $credValue
         do { 
-            $AppRegistration = Get-AzADApplication -DisplayName $AppRegistrationName
-        }until ($AppRegistration)
+            $ServicePrincipal = Get-AzADServicePrincipal -DisplayName $ServicePrincipalName
+        }until ($ServicePrincipal)
 
         do {
             $ResourceGroup = Get-AzResourceGroup -Name $ResourcegroupName
         }
         until ($ResourceGroup)
         $Kvault = New-AzKeyVault -ResourceGroupName $ResourcegroupName -Name $KeyVaultName -Location $location -sku 'standard'
-        Set-AzKeyVaultAccessPolicy -VaultName $KeyVaultName -ObjectId $Appregistration.ObjectId -PermissionsToSecrets get
+        Set-AzKeyVaultAccessPolicy -VaultName $KeyVaultName -ObjectId $ServicePrincipal.Id -PermissionsToSecrets get
         
         [PSCustomObject]@{
             ThumbPrint    = $cer.Thumbprint
             TenantId      = $TenantId
-            ApplicationID = $AppRegistration.ApplicationId
+            ApplicationID = (Get-AzADApplication -DisplayName $ServicePrincipalName).ApplicationId
         }
     }
     catch {
         $_
     }
 }
-Create-AZCredentialManager -TenantId '057ea9a3-ad57-4c97-bf75-ad494ec38d64' -ResourcegroupName 'lhas-demo-credman6' -location 'westeurope' -KeyVaultName 'kv-credman-demo6' -AppRegistrationName 'appreg-lhas-credman6'
